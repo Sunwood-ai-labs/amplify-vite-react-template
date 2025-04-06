@@ -1,52 +1,104 @@
-# Terraform による Cognito と SES のセットアップ
+# Terraform モジュール構成 🚀
 
-このディレクトリには、AWS Cognito と Amazon SES をTerraformを使って構築するためのコードが含まれています。
+このTerraformプロジェクトは、以下の4つのモジュールに分かれています：
 
-## 概要
+## 1. ネットワークモジュール (1-network) 🌐
 
-このTerraformコードは、以下のAWSリソースを作成します：
+- VPCエンドポイント（Cognito、SES、S3、DynamoDB用）の設定
+- セキュリティグループの設定
 
-- Amazon Cognito ユーザープール
-- Cognito アプリケーションクライアント
-- Cognito ドメイン (オプション)
-- Amazon SES 設定 (メール送信元として使用)
-- IAMポリシー (EC2からCognitoとSESへのアクセス用)
+```bash
+cd terraform/1-network
+terraform init -backend-config=backend.hcl
+terraform plan
+terraform apply
+```
 
-## 使い方
+## 2. コンピューティングモジュール (2-compute) 💻
 
-1. **前提条件**:
-   - AWS CLIがインストールされ、適切に設定されていること
-   - Terraformがインストールされていること（バージョン1.0以上推奨）
+- EC2インスタンスの設定（必要な場合）
+- IAMロールとポリシーの設定
+- セキュリティグループの設定
 
-2. **terraform.tfvarsの編集**:
-   ファイル内の変数を環境に合わせて変更します。特に以下の点に注意してください：
-   - `callback_urls`と`logout_urls`をEC2のプライベートIPまたはドメイン名に更新
-   - `ses_from_email`を検証済みのメールアドレスに変更
-   - `ec2_role_name`にEC2のIAMロール名を指定（既存の場合）
+```bash
+cd ../2-compute
+terraform init -backend-config=backend.hcl
+terraform plan
+terraform apply
+```
 
-3. **実行**:
-   ```bash
-   # Terraformの初期化
-   terraform init
+## 3. サービスモジュール (3-services) 🛠️
 
-   # 計画の確認
-   terraform plan
+- Cognitoユーザープールの設定
+- SESメール設定の構成
+- 各種認証・認可の設定
 
-   # リソースの作成
-   terraform apply
-   ```
+```bash
+cd ../3-services
+terraform init -backend-config=backend.hcl
+terraform plan
+terraform apply
+```
 
-4. **出力の使用**:
-   Terraformの実行後、以下の出力値を取得できます：
-   - `cognito_user_pool_id`
-   - `cognito_client_id`
-   - `cognito_domain` (ドメインを作成した場合)
-   - `ses_email_identity_arn`
+## 4. アプリケーションモジュール (4-application) 📱
 
-   これらの値をReactアプリケーションの設定ファイル（src/config/aws-config.js）に設定してください。
+- デプロイ用S3バケットの設定（オプション）
+- CloudFrontディストリビューションの設定（オプション）
 
-## 注意事項
+```bash
+cd ../4-application
+terraform init -backend-config=backend.hcl
+terraform plan
+terraform apply
+```
 
-- SESは初期状態でサンドボックス環境にあります。本番環境で使用する場合は、AWSサポートに制限解除を依頼してください。
-- Cognitoのドメイン名はグローバルに一意である必要があります。重複した場合はエラーが発生します。
-- プライベートサブネットからAWSサービスへのアクセスには、NAT GatewayまたはVPCエンドポイントが必要です。
+## モジュール間の依存関係 🔄
+
+各モジュールは以下の順序で適用する必要があります：
+
+1. ネットワーク → 基本的なネットワークインフラの構築
+2. コンピュート → IAMロールとEC2インスタンスの設定
+3. サービス → CognitoとSESの設定
+4. アプリケーション → フロントエンド関連リソースの設定
+
+## S3バックエンドの設定 📦
+
+各モジュールで以下のような`backend.hcl`ファイルを作成してください：
+
+```hcl
+bucket         = "your-terraform-state-bucket"
+key            = "環境名/モジュール名/terraform.tfstate"
+region         = "ap-northeast-1"
+encrypt        = true
+dynamodb_table = "terraform-state-lock"
+```
+
+## 環境変数の設定 🔐
+
+必要な環境変数を設定してください：
+
+```bash
+export AWS_ACCESS_KEY_ID="your-access-key"
+export AWS_SECRET_ACCESS_KEY="your-secret-key"
+export AWS_REGION="ap-northeast-1"
+```
+
+## 注意事項 ⚠️
+
+- 各モジュールの適用前に、必ず`terraform plan`を実行して変更内容を確認してください
+- 本番環境での適用前に、必ずステージング環境でテストしてください
+- セキュリティグループやIAMポリシーは、最小権限の原則に従って設定してください
+
+## トラブルシューティング 🔍
+
+1. **状態ファイルの競合**
+   - 複数人で作業する場合は、必ずstate lockingを使用してください
+   - バックエンドにはDynamoDBのテーブルを使用することを推奨します
+
+2. **依存関係エラー**
+   - モジュールの適用順序を守ってください
+   - リモートステートの参照が正しく設定されているか確認してください
+
+3. **アクセス権限エラー**
+   - IAMユーザー/ロールに適切な権限が付与されているか確認してください
+   - VPCエンドポイントの設定を確認してください
