@@ -27,3 +27,23 @@ dist-ssr
 .amplify
 amplify_outputs*
 amplifyconfiguration*
+
+# ローカルTerraform設定ファイル
+.terraform/
+.terraform.lock.hcl
+
+# 変数定義（機密情報を含む可能性）
+*.tfvars.json
+
+# バックアップファイル
+*.tfstate
+*.tfstate.backup
+*.tfplan
+
+# ログファイル
+crash.log
+crash.*.log
+
+# 除外ファイル
+*_override.tf
+*_override.tf.json
